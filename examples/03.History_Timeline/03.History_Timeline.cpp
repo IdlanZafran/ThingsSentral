@@ -3,7 +3,8 @@
 
 const char* ssid = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
-String myUserID = "12345"; // Your 5-digit User ID
+
+String myUserID = "00953"; 
 
 void setup() {
     Serial.begin(115200);
@@ -18,6 +19,10 @@ void setup() {
 
     // 2. Initialize ThingsSentral
     TS.begin(myUserID); 
+
+    // 3. Sync Internet Time (Crucial for History timestamps!)
+    // Change "MYT-8" to your actual timezone format
+    TS.syncTime("MYT-8"); 
 }
 
 void loop() {
@@ -28,7 +33,7 @@ void loop() {
     float currentTemp = random(200, 300) / 10.0; 
     float currentHum  = random(400, 800) / 10.0; 
     
-    // 1. Stamp both data points (adds two separate entries to the JSON array)
+    // 1. Stamp both data points (attaches Unix timestamp automatically)
     TS.History.stamp(tempSensorID, currentTemp);
     TS.History.stamp(humSensorID, currentHum);
     
@@ -43,12 +48,12 @@ void loop() {
             bool uploadSuccess = TS.History.upload();
             
             if (uploadSuccess) {
-                Serial.println("Batch uploaded successfully!");
+                Serial.println("Batch uploaded successfully! Buffer cleared.");
             }
         } else {
             Serial.println("Cannot upload batch: No internet.");
         }
     }
     
-    delay(2000); // Wait before taking the next reading
+    delay(2000); 
 }

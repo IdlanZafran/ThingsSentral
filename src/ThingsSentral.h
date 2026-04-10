@@ -14,6 +14,8 @@
 #define ThingsSentral_h
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
+#include <time.h>
 
 #if defined(ESP8266)
   #include <ESP8266WiFi.h>
@@ -35,6 +37,8 @@ class ThingsSentral {
 public:
     // Pass your 5-digit User ID here
     void begin(String userID, String serverURL = "http://thingssentral.io");
+
+    void syncTime(const char* timezoneString = "UTC0", const char* ntpServer = "pool.ntp.org");
 
     // MODULE 1: COMMAND (Live Send/Read)
     struct CommandModule {
@@ -64,6 +68,8 @@ private:
     String _userID;
     String _serverURL;
     String _sendRequest(String url);
+    String _urlEncode(const String& str); // <--- ADD THIS LINE
+};
 };
 
 extern ThingsSentral TS; 

@@ -3,12 +3,12 @@
 
 const char* ssid = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
-String myUserID = "12345"; // Your 5-digit User ID
+
+String myUserID = "00953"; 
 
 void setup() {
     Serial.begin(115200);
     
-    // 1. Connect to WiFi
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
@@ -16,7 +16,6 @@ void setup() {
     }
     Serial.println("\nWiFi connected!");
 
-    // 2. Initialize ThingsSentral
     TS.begin(myUserID); 
 }
 
@@ -36,8 +35,7 @@ void loop() {
     // 2. Try to sync if we have an active connection
     if (TS.isOnline()) {
         Serial.println("Internet detected. Syncing vault to server...");
-        // This will automatically loop through the file and send BOTH sensors' data
-        TS.Vault.sync(); 
+        TS.Vault.sync(); // Automatically loops through file and sends everything
         Serial.println("Sync complete. Vault cleared.");
     } else {
         Serial.println("No internet. Data remains safely in Vault.");
