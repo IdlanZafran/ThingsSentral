@@ -3,7 +3,8 @@
 
 const char* ssid = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
-String myUserID = "12345"; // Your 5-digit User ID
+
+String myUserID = "00953"; // MUST match the first 5 digits of your Sensor IDs
 
 void setup() {
     Serial.begin(115200);
@@ -23,24 +24,22 @@ void setup() {
 void loop() {
     if (TS.isOnline()) {
         
-        // --- SENDING DATA FOR TWO SENSORS ---
+        // --- SENDING LIVE DATA ---
         String tempSensorID = "0095312010101"; // Temperature ID
         String humSensorID  = "0095312010102"; // Humidity ID
         
         String temperature = "24.5";
         String humidity = "60.2";
         
-        // Send first sensor
         if (TS.Command.send(tempSensorID, temperature)) {
             Serial.println("Temperature sent successfully!");
         }
         
-        // Send second sensor
         if (TS.Command.send(humSensorID, humidity)) {
             Serial.println("Humidity sent successfully!");
         }
 
-        // --- READING DATA FOR TWO SWITCHES ---
+        // --- READING LIVE COMMANDS ---
         String switch1ID = "0095312010103"; // Switch 1 ID
         String switch2ID = "0095312010104"; // Switch 2 ID
         
@@ -50,9 +49,8 @@ void loop() {
         Serial.println("Switch 1 Value: " + res1.value); 
         Serial.println("Switch 2 Value: " + res2.value); 
         
-        // Example logic for multiple switches
-        // if (res1.value == "1") { /* Turn on Relay 1 */ }
-        // if (res2.value == "1") { /* Turn on Relay 2 */ }
+        // Example logic:
+        // if (res1.value == "1") { digitalWrite(RELAY_1, HIGH); }
     }
     
     delay(10000); // Wait 10 seconds before next cycle

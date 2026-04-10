@@ -83,4 +83,86 @@ int ThingsSentral::HistoryModule::count() {
     return doc.size(); // Returns the number of elements in the JSON array
 }
 
+// HISTORY: Time-Series JSON formatting
+void ThingsSentral::HistoryModule::stamp(String sensorID, float value) {
+    JsonDocument doc; // Dynamically sizes memory for the JSON
+
+    // If a history file already exists, load it into the document
+    if (LittleFS.exists("/ts_history.json")) {
+        File f = LittleFS.open("/ts_history.json", "r");
+        deserializeJson(doc, f);
+        f.close();
+    }
+
+    // Add the new data point to the JSON Array
+    JsonObject obj = doc.add<JsonObject>();
+    obj["id"] = sensorID;
+    obj["val"] = value;
+    obj["t"] = time(nullptr);
+
+    // Save the updated JSON array back to the flash memory
+    File f = LittleFS.open("/ts_history.json", "w");
+    serializeJson(doc, f);
+    f.close();
+}
+
+bool ThingsSentral::HistoryModule::upload() {
+    // Abort if offline or if there is no history file to send
+    if (!parent->isOnline() || !LittleFS.exists("/ts_history.json")) return false;
+
+    // Read the entire JSON array into a string
+    File f = LittleFS.open("/ts_history.json", "r");
+    String jsonStr = f.readString();
+    f.close();
+
+    // Safely encode the JSON string before adding it to the URL
+    String encodedJson = parent->_urlEncode(jsonStr);
+    
+    // Construct the Bulk Upload URL
+    String url = parent->_serverURL + "/SendArray?DataToSend=" + encodedJson;
+    
+    // If the server responds successfully, delete the local file to start fresh
+    if (parent->_sendRequest(url) != "") {
+        LittleFS.remove("/ts_history.json");
+        return true;
+    }
+    
+    return false;
+}
+
+// Fetches the real time from the internet
+void ThingsSentral::syncTime(const char* timezoneString, const char* ntpServer) {
+    configTime(0, 0, ntpServer);
+    setenv("TZ", timezoneString, 1);
+    tzset();
+
+    Serial.print("TS: Syncing NTP Time...");
+    time_t now = time(nullptr);
+    // Wait until the time is valid (greater than the year 1970)
+    while (now < 24 * 3600) { 
+        delay(500);
+        Serial.print(".");
+        now = time(nullptr);
+    }
+    Serial.println(" Success!");
+}
+
+// Helper function to safely encode JSON strings for HTTP GET URLs
+String ThingsSentral::_urlEncode(const String& str) {
+    String encoded = "";
+    for (unsigned int i = 0; i < str.length(); i++) {
+        char c = str[i];
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            encoded += c;
+        } else if (c == ' ') {
+            encoded += "%20";
+        } else {
+            char buf[4];
+            sprintf(buf, "%%%02X", c);
+            encoded += buf;
+        }
+    }
+    return encoded;
+}
+
 ThingsSentral TS;
