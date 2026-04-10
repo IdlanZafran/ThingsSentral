@@ -6,47 +6,77 @@ void ThingsSentral::begin(String userID, String serverURL) {
     Command.parent = this;
     Vault.parent = this;
     History.parent = this;
-    LittleFS.begin();
+    
+    // Safety check: Ensure the file system actually starts
+    if (!LittleFS.begin()) {
+        Serial.println("TS: Error mounting LittleFS!");
+    }
 }
 
 bool ThingsSentral::isOnline() {
     return WiFi.status() == WL_CONNECTED;
 }
 
+// FIX 1: Safe, localized networking (No Reentrancy Risk)
 String ThingsSentral::_sendRequest(String url) {
     if (!isOnline()) return "";
+    
     WiFiClient client;
     HTTPClient http;
+    
+    // Strict 5-second timeout to prevent infinite freezes
+    http.setTimeout(5000); 
+    
     http.begin(client, url);
     int httpCode = http.GET();
-    String payload = (httpCode > 0) ? http.getString() : "";
-    http.end();
+    String payload = "";
+    
+    if (httpCode > 0) {
+        if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == 404) {
+            payload = http.getString();
+        }
+    } else {
+        Serial.printf("TS: HTTP Error: %s\n", http.errorToString(httpCode).c_str());
+    }
+    
+    // Cleanly destroy the socket to free up ESP memory slots
+    http.end(); 
     return payload;
 }
 
 bool ThingsSentral::CommandModule::send(String sensorID, String value) {
-    // Format: http://thingssentral.io/postlong?data=userid|00953@0095312010101|25.0
-    String url = parent->_serverURL + "/postlong?data=userid|" + parent->_userID;
-    url += "@" + sensorID + "|" + value;
+    String url;
+    url.reserve(parent->_serverURL.length() + parent->_userID.length() + sensorID.length() + value.length() + 30);
+    url = parent->_serverURL;
+    url += "/postlong?data=userid|";
+    url += parent->_userID;
+    url += "@";
+    url += sensorID;
+    url += "|";
+    url += value;
+    
     return parent->_sendRequest(url) != "";
 }
 
-// COMMAND: Read logic
 ReadResult ThingsSentral::CommandModule::read(String sensorID) {
     ReadResult res = {0, "error", ""};
     String url = parent->_serverURL + "/ReadNode?Params=tokenid|" + parent->_userID + "@NodeId|" + sensorID;
     
     res.fullResponse = parent->_sendRequest(url);
-    int firstPipe = res.fullResponse.indexOf("|");
-    int secondPipe = res.fullResponse.indexOf("|", firstPipe + 1);
     
-    if (firstPipe != -1 && secondPipe != -1) {
-        res.value = res.fullResponse.substring(firstPipe + 1, secondPipe);
+    // Make sure response is long enough to actually contain data before parsing
+    if (res.fullResponse.length() > 3) {
+        int firstPipe = res.fullResponse.indexOf("|");
+        if (firstPipe != -1) {
+            int secondPipe = res.fullResponse.indexOf("|", firstPipe + 1);
+            if (secondPipe != -1) {
+                res.value = res.fullResponse.substring(firstPipe + 1, secondPipe);
+            }
+        }
     }
     return res;
 }
 
-// VAULT: Offline persistence logic
 void ThingsSentral::VaultModule::add(String sensorID, String value) {
     File f = LittleFS.open("/ts_vault.txt", "a");
     if (f) {
@@ -56,81 +86,126 @@ void ThingsSentral::VaultModule::add(String sensorID, String value) {
 }
 
 void ThingsSentral::VaultModule::sync() {
-    if (!parent->isOnline()) return;
+    if (!parent->isOnline() || !LittleFS.exists("/ts_vault.txt")) return;
+    
     File f = LittleFS.open("/ts_vault.txt", "r");
-    if (!f) return;
+    File temp = LittleFS.open("/ts_vault_temp.txt", "w"); // Create temp file for failed sends
+    
+    if (!f || !temp) return;
 
     while (f.available()) {
         String line = f.readStringUntil('\n');
+        line.trim();
+        if (line.length() == 0) continue;
+
         int sep = line.indexOf('|');
         if (sep != -1) {
-            parent->Command.send(line.substring(0, sep), line.substring(sep + 1));
+            String id = line.substring(0, sep);
+            String val = line.substring(sep + 1);
+            
+            // If it FAILS to send, save it back to the temp file
+            if (!parent->Command.send(id, val)) {
+                temp.printf("%s|%s\n", id.c_str(), val.c_str());
+            } else {
+                delay(100); // Rate limit successful sends
+            }
         }
     }
+    
     f.close();
+    temp.close();
+    
+    // Replace old vault with the temp vault (which only holds failed sends now)
     LittleFS.remove("/ts_vault.txt");
+    LittleFS.rename("/ts_vault_temp.txt", "/ts_vault.txt");
+}
+
+void ThingsSentral::HistoryModule::stamp(String sensorID, float value) {
+    File f = LittleFS.open("/ts_history.txt", "a"); 
+    if (f) {
+        f.printf("{\"id\":\"%s\",\"val\":%.2f,\"t\":%ld}\n", sensorID.c_str(), value, time(nullptr));
+        f.close();
+    }
 }
 
 int ThingsSentral::HistoryModule::count() {
-    if (!LittleFS.exists("/ts_history.json")) return 0;
-
-    File f = LittleFS.open("/ts_history.json", "r");
-    JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, f);
-    f.close();
-
-    if (error) return 0;
-    return doc.size(); // Returns the number of elements in the JSON array
-}
-
-// HISTORY: Time-Series JSON formatting
-void ThingsSentral::HistoryModule::stamp(String sensorID, float value) {
-    JsonDocument doc; // Dynamically sizes memory for the JSON
-
-    // If a history file already exists, load it into the document
-    if (LittleFS.exists("/ts_history.json")) {
-        File f = LittleFS.open("/ts_history.json", "r");
-        deserializeJson(doc, f);
-        f.close();
+    if (!LittleFS.exists("/ts_history.txt")) return 0;
+    File f = LittleFS.open("/ts_history.txt", "r");
+    if (!f) return 0;
+    
+    int lines = 0;
+    while (f.available()) {
+        if (f.read() == '\n') lines++; 
     }
-
-    // Add the new data point to the JSON Array
-    JsonObject obj = doc.add<JsonObject>();
-    obj["id"] = sensorID;
-    obj["val"] = value;
-    obj["t"] = time(nullptr);
-
-    // Save the updated JSON array back to the flash memory
-    File f = LittleFS.open("/ts_history.json", "w");
-    serializeJson(doc, f);
     f.close();
+    return lines;
 }
 
 bool ThingsSentral::HistoryModule::upload() {
-    // Abort if offline or if there is no history file to send
-    if (!parent->isOnline() || !LittleFS.exists("/ts_history.json")) return false;
+    if (!parent->isOnline() || !LittleFS.exists("/ts_history.txt")) return false;
 
-    // Read the entire JSON array into a string
-    File f = LittleFS.open("/ts_history.json", "r");
-    String jsonStr = f.readString();
+    File f = LittleFS.open("/ts_history.txt", "r");
+    if (!f) return false;
+
+    // FIX 3: Prevent Heap Fragmentation by pre-allocating memory
+    String payload;
+    payload.reserve(2048); 
+    payload = "[";
+    
+    bool first = true;
+    bool success = true;
+    int estimatedEncodedLen = 1; // Account for the '[' bracket
+
+    while (f.available()) {
+        String line = f.readStringUntil('\n');
+        line.trim();
+        if (line.length() == 0) continue;
+
+        // FIX 5: Safe URL Length Math (assume worst-case 3x expansion for encoding)
+        int lineMaxEncodedLen = line.length() * 3 + 1; 
+
+        if (estimatedEncodedLen + lineMaxEncodedLen > 1500) {
+            payload += "]"; 
+            String url = parent->_serverURL + "/SendArray?DataToSend=" + parent->_urlEncode(payload);
+            
+            if (parent->_sendRequest(url) == "") {
+                success = false;
+                break; 
+            }
+            
+            payload = "[";
+            estimatedEncodedLen = 1;
+            first = true;
+        }
+
+        if (!first) {
+            payload += ",";
+            estimatedEncodedLen++;
+        }
+        
+        payload += line;
+        estimatedEncodedLen += lineMaxEncodedLen;
+        first = false;
+    }
+
+    if (success && payload.length() > 1) {
+        payload += "]";
+        String url = parent->_serverURL + "/SendArray?DataToSend=" + parent->_urlEncode(payload);
+        if (parent->_sendRequest(url) == "") {
+            success = false;
+        }
+    }
     f.close();
 
-    // Safely encode the JSON string before adding it to the URL
-    String encodedJson = parent->_urlEncode(jsonStr);
-    
-    // Construct the Bulk Upload URL
-    String url = parent->_serverURL + "/SendArray?DataToSend=" + encodedJson;
-    
-    // If the server responds successfully, delete the local file to start fresh
-    if (parent->_sendRequest(url) != "") {
-        LittleFS.remove("/ts_history.json");
+    if (success) {
+        LittleFS.remove("/ts_history.txt");
         return true;
     }
     
     return false;
 }
 
-// Fetches the real time from the internet
+// FIX 2: Prevent the Infinite Time Loop of Death
 void ThingsSentral::syncTime(const char* timezoneString, const char* ntpServer) {
     configTime(0, 0, ntpServer);
     setenv("TZ", timezoneString, 1);
@@ -138,22 +213,31 @@ void ThingsSentral::syncTime(const char* timezoneString, const char* ntpServer) 
 
     Serial.print("TS: Syncing NTP Time...");
     time_t now = time(nullptr);
-    // Wait until the time is valid (greater than the year 1970)
-    while (now < 24 * 3600) { 
+    unsigned long start = millis();
+    
+    // Add a strict 15-second timeout
+    while (now < 24 * 3600 && millis() - start < 15000) { 
         delay(500);
         Serial.print(".");
         now = time(nullptr);
     }
-    Serial.println(" Success!");
+    
+    if (now < 24 * 3600) {
+        Serial.println(" Failed (Timeout).");
+    } else {
+        Serial.println(" Success!");
+    }
 }
 
-// Helper function to safely encode JSON strings for HTTP GET URLs
+// FIX 6: Unsigned char to prevent negative values breaking standard C functions
 String ThingsSentral::_urlEncode(const String& str) {
     String encoded = "";
+    encoded.reserve(str.length() * 2); // Minor optimization for the encoding string
+    
     for (unsigned int i = 0; i < str.length(); i++) {
-        char c = str[i];
+        unsigned char c = str[i]; 
         if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
-            encoded += c;
+            encoded += (char)c;
         } else if (c == ' ') {
             encoded += "%20";
         } else {

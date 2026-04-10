@@ -1,10 +1,12 @@
 /**
  * ThingsSentral.h
- * 
- * A library to connect ESP8266 and ESP32 devices to the ThingsSentral.io platform.
- * This library provides three core modules: Command for live sending and reading of telemetry data, Vault for offline data persistence using LittleFS, and History for timestamped bulk data payloads.
- * 
- * @author Idlan Zafran Mohd Zaidie
+ * An enterprise-grade library to connect ESP8266 and ESP32 devices to the ThingsSentral.io platform.
+ * This library provides three core modules: 
+ *      Command for live telemetry with Keep-Alive connection reuse, 
+ *      Vault for safe offline data persistence using LittleFS, 
+ *      and History for memory-safe, auto-chunked bulk data payloads. 
+ * Hardened against memory leaks and socket exhaustion. 
+ * @author Creator Idlan Zafran Mohd Zaidie
  * @version 1.0.0
  * @license MIT
  */
@@ -35,30 +37,25 @@ struct ReadResult {
 
 class ThingsSentral {
 public:
-    // Pass your 5-digit User ID here
     void begin(String userID, String serverURL = "http://thingssentral.io");
-
     void syncTime(const char* timezoneString = "UTC0", const char* ntpServer = "pool.ntp.org");
 
-    // MODULE 1: COMMAND (Live Send/Read)
     struct CommandModule {
         ThingsSentral* parent;
-        ReadResult read(String sensorID);              // Read from 13-digit ID
-        bool send(String sensorID, String value);     // Send to 13-digit ID
+        ReadResult read(String sensorID);              
+        bool send(String sensorID, String value);     
     } Command;
 
-    // MODULE 2: VAULT (Offline Safety)
     struct VaultModule {
         ThingsSentral* parent;
-        void add(String sensorID, String value);       // Store data locally
-        void sync();                                   // Push stored data to web
+        void add(String sensorID, String value);       
+        void sync();                                   
     } Vault;
 
-    // MODULE 3: HISTORY (Time-Series)
     struct HistoryModule {
         ThingsSentral* parent;
-        void stamp(String sensorID, float value);      // Mark with timestamp
-        bool upload();                                 // Send bulk JSON
+        void stamp(String sensorID, float value);      
+        bool upload();                                 
         int count();
     } History;
 
@@ -68,8 +65,7 @@ private:
     String _userID;
     String _serverURL;
     String _sendRequest(String url);
-    String _urlEncode(const String& str); // <--- ADD THIS LINE
-};
+    String _urlEncode(const String& str);
 };
 
 extern ThingsSentral TS; 

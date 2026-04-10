@@ -1,29 +1,29 @@
 {
   "name": "ThingsSentral",
   "version": "1.0.0",
-  "description": "A library to connect ESP8266 and ESP32 devices to the ThingsSentral.io platform with built-in offline caching.",
+  "description": "An enterprise-grade library to connect ESP8266 and ESP32 devices to the ThingsSentral.io platform. Features HTTP Keep-Alive, safe offline LittleFS caching, and auto-chunking batch uploads.",
   "keywords": [
-    "iot",
-    "thingssentral",
-    "esp8266",
-    "esp32",
-    "telemetry",
-    "http",
-    "littlefs"
+    "iot", "thingssentral", "esp8266", "esp32", "telemetry", "http", "keep-alive", "littlefs", "batch-upload"
   ],
   "authors": [
     {
-      "name": "Idlan Zafran Mohd Zaidie"
+      "name": "Idlan Zafran Mohd Zaidie",
+      "email": "lanzaidie@gmail.com",
+      "maintainer": true
     }
   ],
   "license": "MIT",
   "homepage": "https://github.com/IdlanZafran/ThingsSentral",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IdlanZafran/ThingsSentral.git"
+  },
   "frameworks": "arduino",
   "platforms": [
     "espressif8266",
     "espressif32"
   ],
   "dependencies": {
-    "bblanchon/ArduinoJson": "^6.0.0 || ^7.0.0"
+    "bblanchon/ArduinoJson": "^7.2.2"
   }
 }
