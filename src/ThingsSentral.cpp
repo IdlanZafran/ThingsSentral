@@ -32,7 +32,7 @@ String ThingsSentral::_sendRequest(String url) {
     String payload = "";
     
     if (httpCode > 0) {
-        if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
+        if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == 404) {
             payload = http.getString();
         }
     } else {

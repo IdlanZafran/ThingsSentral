@@ -1,11 +1,15 @@
 /*
- * Example: Basic Command Module (Live Telemetry)
+ * Example: Command Module (Live Send & Receive)
  * Author: Idlan Zafran Mohd Zaidie
  * * Description:
- * This sketch demonstrates how to send and receive real-time telemetry data 
- * using the ThingsSentral Command module. It uses non-blocking millis() timers 
- * instead of delay() to maintain a healthy background Keep-Alive connection 
- * while sending sensor data and reading relay states every 10 seconds.
+ * This sketch demonstrates the ThingsSentral Command module for real-time, 
+ * two-way communication. It reads a local sensor and pushes the data live 
+ * to the server. Immediately after, it queries the server for incoming 
+ * instructions (like a button press on a dashboard) to control a local relay.
+ * * Sample Uses:
+ * - Smart Home applications where you need to report room temperature while simultaneously listening for a command to turn on a smart plug.
+ * - Live industrial dashboards that require instant, up-to-the-second telemetry without any batching delays.
+ * - Bidirectional remote-control vehicles or drones where real-time command execution is critical.
  */
 
 #include <Arduino.h>

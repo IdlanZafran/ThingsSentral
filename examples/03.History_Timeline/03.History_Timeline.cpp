@@ -6,6 +6,10 @@
  * It syncs the device with an NTP time server, stamps local sensor readings with a 
  * Unix timestamp, and saves them to memory. Once a specific number of records is 
  * collected, it safely chunks and uploads the bulk JSON payload to the server.
+ * * Sample Uses:
+ * - Battery-powered IoT devices using Deep Sleep that log data locally every hour, but only turn on the power-hungry WiFi radio once a day to bulk-upload.
+ * - High-frequency data loggers (e.g., motor vibration analytics) that generate data too fast to send individually over standard HTTP requests.
+ * - Cold-chain logistics or shipping monitors that record temperature timelines continuously offline and upload the entire batch when returning to a warehouse WiFi zone.
  */
 
 #include <Arduino.h>

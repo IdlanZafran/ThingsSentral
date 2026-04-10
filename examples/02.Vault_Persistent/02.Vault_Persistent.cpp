@@ -7,6 +7,10 @@
  * sensor readings live to the server first. If the send fails (no internet 
  * or server down), it automatically falls back to storing the data offline 
  * in LittleFS. When the connection is restored, it syncs the offline cache.
+ * * Sample Uses:
+ * - Remote weather stations or agricultural sensors located in areas with spotty cellular or WiFi coverage.
+ * - Mobile asset trackers (e.g., vehicle fleet monitors) that frequently pass through network dead zones.
+ * - Critical industrial monitors where momentary network drops are common, but zero data loss is required.
  */
 
 #include <Arduino.h>

@@ -26,7 +26,6 @@
     "espressif32"
   ],
   "dependencies": {
-    "name": "bblanchon/ArduinoJson",
-      "version": "^7.2.2"
+     "bblanchon/ArduinoJson": "^7.2.2"
   }
 }
