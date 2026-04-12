@@ -2,45 +2,41 @@
  * Example: Vault Module with Dynamic Flash-Saving Routing
  * Author: Idlan Zafran Mohd Zaidie
  * * Description:
- * This sketch demonstrates an advanced implementation of the Vault module.
- * To preserve the lifespan of the ESP's flash memory, it attempts to send 
- * sensor readings live to the server first. If the send fails (no internet 
- * or server down), it automatically falls back to storing the data offline 
- * in LittleFS. When the connection is restored, it syncs the offline cache.
- * * Sample Uses:
- * - Remote weather stations or agricultural sensors located in areas with spotty cellular or WiFi coverage.
- * - Mobile asset trackers (e.g., vehicle fleet monitors) that frequently pass through network dead zones.
- * - Critical industrial monitors where momentary network drops are common, but zero data loss is required.
+ * This sketch tries to send data live. If the internet drops, it automatically 
+ * falls back to storing the data offline in LittleFS. When the connection 
+ * is restored by RapidBootWiFi, it syncs the offline cache.
  */
 
 #include <Arduino.h>
-#include <WiFi.h> // Use <ESP8266WiFi.h> if using ESP8266
+#include <RapidBootWiFi.h>
 #include "ThingsSentral.h"
 
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
+char defaultUserID[16] = "00953"; 
 
-String myUserID = "00953"; 
-
-// Non-blocking timer variables
 unsigned long lastReadTime = 0;
 const unsigned long readInterval = 5000; // 5 seconds
 
 void setup() {
     Serial.begin(115200);
+    pinMode(0, INPUT_PULLUP);
     
-    WiFi.begin(ssid, password);
-    Serial.print("Connecting to WiFi");
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
+    myWiFi.setAPName("TS_Vault_Node");
+    myWiFi.addParameter("uid", "ThingsSentral User ID", defaultUserID, 15);
+    myWiFi.setBootThresholds(3, 5);
+    
+    if (digitalRead(0) == LOW) {
+        myWiFi.openPortal();
+    } else {
+        myWiFi.begin();
     }
-    Serial.println("\nWiFi connected!");
 
-    TS.begin(myUserID); 
+    String activeUserID = String(myWiFi.getParameterValue("uid"));
+    TS.begin(activeUserID); 
 }
 
 void loop() {
+    myWiFi.loop();
+
     if (millis() - lastReadTime >= readInterval) {
         lastReadTime = millis();
 
@@ -78,7 +74,6 @@ void loop() {
 
         // 4. Housekeeping: Sync any old data trapped in the Vault
         if (TS.isOnline()) {
-            // This runs instantly if the vault is empty, so it's safe to call here.
             TS.Vault.sync(); 
         }
         

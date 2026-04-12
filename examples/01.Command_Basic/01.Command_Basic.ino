@@ -1,76 +1,179 @@
-/*
- * Example: Command Module (Live Send & Receive)
- * Author: Idlan Zafran Mohd Zaidie
- * * Description:
- * This sketch demonstrates the ThingsSentral Command module for real-time, 
- * two-way communication. It reads a local sensor and pushes the data live 
- * to the server. Immediately after, it queries the server for incoming 
- * instructions (like a button press on a dashboard) to control a local relay.
- * * Sample Uses:
- * - Smart Home applications where you need to report room temperature while simultaneously listening for a command to turn on a smart plug.
- * - Live industrial dashboards that require instant, up-to-the-second telemetry without any batching delays.
- * - Bidirectional remote-control vehicles or drones where real-time command execution is critical.
- */
+ThingsSentral
+By Idlan Zafran Mohd Zaidie
+
+Version License: MIT
+
+An enterprise-grade, memory-safe Arduino library for connecting ESP8266 and ESP32 devices to the ThingsSentral.io platform.
+
+🚀 Core Features
+This library is architected around three specialized modules, each heavily optimized for microcontroller constraints to prevent memory leaks and socket exhaustion:
+
+Command Module: Built for real-time telemetry. Utilizes HTTP Keep-Alive for instant, low-latency connection reuse, bypassing the overhead of constant TCP handshakes.
+Vault Module: Bulletproof offline caching using LittleFS. Safely stores data during internet outages and uses a secure swap-file system to automatically sync it back to the cloud without dropping a single data point.
+History Module: Records time-series data with precise timestamps. Features memory-safe appending (zero RAM overhead) and automatic JSON chunking to allow massive bulk uploads without crashing your device.
+⚖️ Module Comparison: Pros & Cons
+Choosing the right module depends on whether your project prioritizes real-time control, data retention, or power efficiency.
+
+Module	Best Use Case	Pros	Cons
+Command	Smart home devices, live dashboards, remote relay control.	+ Two-Way Sync: The only module that can both send telemetry and receive remote commands.
++ Instantaneous: Data appears on your dashboard instantly.
++ Low Latency: Keep-Alive reuse makes HTTP requests incredibly fast.	- No Fallback: If the WiFi drops, the data point is lost forever.
+- Network Dependent: Slow networks can block your main loop if not carefully timed.
+Vault	Industrial monitors, mobile asset trackers, spotty WiFi zones.	+ Zero Data Loss: Guarantees data delivery even after hours of network downtime.
++ Auto-Recovery: Seamlessly syncs cached data the moment the connection returns.
++ Flash Friendly: Can attempt live sends first, saving flash write cycles.	- Outbound Only: Cannot receive instructions from the server.
+- Delayed Data: Dashboard metrics stall until the device comes back online.
+- Flash Wear: Heavy offline usage will eventually wear out the ESP's flash memory.
+History	Battery-powered devices, deep-sleep loggers, bulk data analytics.	+ Extreme Efficiency: Perfect for devices that wake up, read a sensor, log it, and sleep.
++ Network Saving: Reduces WiFi radio uptime by batching hundreds of readings.
++ Crash-Proof: Chunking logic prevents heap fragmentation during massive HTTP payloads.	- Outbound Only: Cannot receive instructions from the server.
+- Requires NTP: Timestamps will be wrong if the device fails to sync on boot.
+- Not Real-Time: Data is only viewable after a bulk upload is triggered.
+📦 Dependencies
+To ensure maximum stability, this library relies on the following core components:
+
+LittleFS: Used internally for the Vault and History modules to handle file storage. (Built into the ESP core).
+ArduinoJson: Required for parsing incoming commands and formatting history payloads. (v6.x or v7.x supported).
+🛠️ Installation
+For Arduino IDE
+Open the Arduino IDE.
+Go to Sketch -> Include Library -> Manage Libraries...
+In the search bar, type ThingsSentral.
+Click Install.
+Repeat the search for ArduinoJson and install it if you haven't already.
+For PlatformIO
+Add the following to your platformio.ini file under your environment configuration:
+
+lib_deps =
+    https://github.com/IdlanZafran/ThingsSentral.git
+    bblanchon/ArduinoJson
+📚 Quick Start & Examples
+Note: The following examples utilize the RapidBootWiFi library to handle headless WiFi provisioning and dynamic User ID injection.
+
+1. Command Module (Live Send & Receive)
+Perfect for Smart Plugs or live dashboards requiring instant telemetry and remote control.
 
 #include <Arduino.h>
-#include <WiFi.h> // Use <ESP8266WiFi.h> if using ESP8266
-#include "ThingsSentral.h"
+#include <RapidBootWiFi.h>
+#include <ThingsSentral.h>
 
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
-
-String myUserID = "00953"; // MUST match the first 5 digits of your Sensor IDs
-
-// Non-blocking timer variables
 unsigned long lastSendTime = 0;
-const unsigned long sendInterval = 10000; // 10 seconds
 
 void setup() {
     Serial.begin(115200);
     
-    // 1. Connect to WiFi
-    WiFi.begin(ssid, password);
-    Serial.print("Connecting to WiFi");
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("\nWiFi connected!");
+    // Headless Setup
+    myWiFi.setAPName("TS_Command_Node");
+    myWiFi.addParameter("uid", "ThingsSentral User ID", "00953", 15);
+    myWiFi.begin();
 
-    // 2. Initialize ThingsSentral
-    TS.begin(myUserID); 
+    // Initialize ThingsSentral with the User ID saved from the portal
+    TS.begin(String(myWiFi.getParameterValue("uid"))); 
 }
 
 void loop() {
-    // Check if it has been 10 seconds since the last run
-    if (millis() - lastSendTime >= sendInterval) {
-        lastSendTime = millis(); // Reset timer
+    myWiFi.loop(); // Keep WiFi alive
+
+    // Send and Read every 10 seconds
+    if (millis() - lastSendTime >= 10000) {
+        lastSendTime = millis(); 
 
         if (TS.isOnline()) {
-            // --- SENDING LIVE DATA ---
-            String tempSensorID = "0095312010101"; 
-            String humSensorID  = "0095312010102"; 
-            
-            String temperature = "24.5";
-            String humidity = "60.2";
-            
-            if (TS.Command.send(tempSensorID, temperature)) {
-                Serial.println("Temperature sent successfully!");
-            }
-            if (TS.Command.send(humSensorID, humidity)) {
-                Serial.println("Humidity sent successfully!");
-            }
+            // SEND Live Data
+            TS.Command.send("0095312010101", "24.5"); // Temp
+            TS.Command.send("0095312010102", "60.2"); // Humidity
 
-            // --- READING LIVE COMMANDS ---
-            String switch1ID = "0095312010103"; 
-            String switch2ID = "0095312010104"; 
-            
-            ReadResult res1 = TS.Command.read(switch1ID);
-            ReadResult res2 = TS.Command.read(switch2ID);
-            
-            Serial.println("Switch 1 Value: " + res1.value); 
-            Serial.println("Switch 2 Value: " + res2.value); 
+            // READ Live Commands (e.g., Dashboard Switches)
+            ReadResult relayState = TS.Command.read("0095312010103");
+            Serial.println("Relay State: " + relayState.value); 
         }
     }
+}
+2. Vault Module (Dynamic Flash-Saving Routing)
+Perfect for mobile trackers or monitors in spotty WiFi zones. Tries to send live; falls back to offline memory if the network drops.
+
+#include <Arduino.h>
+#include <RapidBootWiFi.h>
+#include <ThingsSentral.h>
+
+unsigned long lastReadTime = 0;
+
+void setup() {
+    Serial.begin(115200);
     
+    myWiFi.setAPName("TS_Vault_Node");
+    myWiFi.addParameter("uid", "ThingsSentral User ID", "00953", 15);
+    myWiFi.begin();
+
+    TS.begin(String(myWiFi.getParameterValue("uid"))); 
+}
+
+void loop() {
+    myWiFi.loop();
+
+    if (millis() - lastReadTime >= 5000) {
+        lastReadTime = millis();
+
+        String tempID = "0095312010101"; 
+        String currentTemp = String(random(200, 300) / 10.0); 
+
+        // 1. Try to send live data directly to the server first
+        bool tempSent = false;
+        if (TS.isOnline()) tempSent = TS.Command.send(tempID, currentTemp);
+
+        // 2. Fallback routing
+        if (!tempSent) {
+            TS.Vault.add(tempID, currentTemp);
+            Serial.println("Network offline. Saved to Vault.");
+        }
+
+        // 3. Housekeeping: Sync any old data trapped in the Vault
+        if (TS.isOnline()) TS.Vault.sync(); 
+    }
+}
+3. History Module (Time-Series Batch Upload)
+Perfect for battery-powered or deep-sleep devices. Collects data locally with timestamps and uploads in bulk.
+
+#include <Arduino.h>
+#include <RapidBootWiFi.h>
+#include <ThingsSentral.h>
+
+unsigned long lastSampleTime = 0;
+int localRecordCount = 0; 
+
+void setup() {
+    Serial.begin(115200);
+    
+    myWiFi.setAPName("TS_History_Node");
+    myWiFi.addParameter("uid", "ThingsSentral User ID", "00953", 15);
+    myWiFi.begin();
+
+    TS.begin(String(myWiFi.getParameterValue("uid"))); 
+
+    // Sync Internet Time (Crucial for History timestamps)
+    if (TS.isOnline()) TS.syncTime("MYT-8"); 
+    
+    localRecordCount = TS.History.count();
+}
+
+void loop() {
+    myWiFi.loop();
+
+    // Sample every 2 seconds
+    if (millis() - lastSampleTime >= 2000) {
+        lastSampleTime = millis();
+
+        // 1. Stamp data points (attaches Unix timestamp automatically)
+        TS.History.stamp("0095312010101", 24.5);
+        localRecordCount++;
+
+        // 2. Upload batch if we have 10 or more records
+        if (localRecordCount >= 10 && TS.isOnline()) {
+            Serial.println("Uploading batch history...");
+            if (TS.History.upload()) {
+                Serial.println("Batch uploaded successfully!");
+                localRecordCount = 0; 
+            }
+        }
+    }
 }
