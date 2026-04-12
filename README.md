@@ -1,58 +1,71 @@
-ThingsSentral
-By Idlan Zafran Mohd Zaidie
+# ThingsSentral
 
-Version License: MIT
+**By Idlan Zafran Mohd Zaidie**
 
-An enterprise-grade, memory-safe Arduino library for connecting ESP8266 and ESP32 devices to the ThingsSentral.io platform.
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/IdlanZafran/ThingsSentral)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-🚀 Core Features
+An enterprise-grade, memory-safe Arduino library for connecting **ESP8266** and **ESP32** devices to the [ThingsSentral.io](http://thingssentral.io) platform. 
+
+---
+
+## 🚀 Core Features
+
 This library is architected around three specialized modules, each heavily optimized for microcontroller constraints to prevent memory leaks and socket exhaustion:
 
-Command Module: Built for real-time telemetry. Utilizes HTTP Keep-Alive for instant, low-latency connection reuse, bypassing the overhead of constant TCP handshakes.
-Vault Module: Bulletproof offline caching using LittleFS. Safely stores data during internet outages and uses a secure swap-file system to automatically sync it back to the cloud without dropping a single data point.
-History Module: Records time-series data with precise timestamps. Features memory-safe appending (zero RAM overhead) and automatic JSON chunking to allow massive bulk uploads without crashing your device.
-⚖️ Module Comparison: Pros & Cons
-Choosing the right module depends on whether your project prioritizes real-time control, data retention, or power efficiency.
+* **Command Module:** Built for real-time telemetry. Utilizes **HTTP Keep-Alive** for instant, low-latency connection reuse, bypassing the overhead of constant TCP handshakes.
+* **Vault Module:** Bulletproof offline caching using LittleFS. Safely stores data during internet outages and uses a secure swap-file system to automatically sync it back to the cloud without dropping a single data point.
+* **History Module:** Records time-series data with precise timestamps. Features **memory-safe appending** (zero RAM overhead) and **automatic JSON chunking** to allow massive bulk uploads without crashing your device.
 
-Module	Best Use Case	Pros	Cons
-Command	Smart home devices, live dashboards, remote relay control.	+ Two-Way Sync: The only module that can both send telemetry and receive remote commands.
-+ Instantaneous: Data appears on your dashboard instantly.
-+ Low Latency: Keep-Alive reuse makes HTTP requests incredibly fast.	- No Fallback: If the WiFi drops, the data point is lost forever.
-- Network Dependent: Slow networks can block your main loop if not carefully timed.
-Vault	Industrial monitors, mobile asset trackers, spotty WiFi zones.	+ Zero Data Loss: Guarantees data delivery even after hours of network downtime.
-+ Auto-Recovery: Seamlessly syncs cached data the moment the connection returns.
-+ Flash Friendly: Can attempt live sends first, saving flash write cycles.	- Outbound Only: Cannot receive instructions from the server.
-- Delayed Data: Dashboard metrics stall until the device comes back online.
-- Flash Wear: Heavy offline usage will eventually wear out the ESP's flash memory.
-History	Battery-powered devices, deep-sleep loggers, bulk data analytics.	+ Extreme Efficiency: Perfect for devices that wake up, read a sensor, log it, and sleep.
-+ Network Saving: Reduces WiFi radio uptime by batching hundreds of readings.
-+ Crash-Proof: Chunking logic prevents heap fragmentation during massive HTTP payloads.	- Outbound Only: Cannot receive instructions from the server.
-- Requires NTP: Timestamps will be wrong if the device fails to sync on boot.
-- Not Real-Time: Data is only viewable after a bulk upload is triggered.
-📦 Dependencies
+---
+
+## ⚖️ Module Comparison: Pros & Cons
+
+Choosing the right module depends on whether your project prioritizes real-time control, data retention, or power efficiency. 
+
+| Module | Best Use Case | Pros | Cons |
+| :--- | :--- | :--- | :--- |
+| **Command** | Smart home devices, live dashboards, remote relay control. | **+ Two-Way Sync:** The *only* module that can both send telemetry and receive remote commands.<br>**+ Instantaneous:** Data appears on your dashboard instantly.<br>**+ Low Latency:** Keep-Alive reuse makes HTTP requests incredibly fast. | **- No Fallback:** If the WiFi drops, the data point is lost forever.<br>**- Network Dependent:** Slow networks can block your main loop if not carefully timed. |
+| **Vault** | Industrial monitors, mobile asset trackers, spotty WiFi zones. | **+ Zero Data Loss:** Guarantees data delivery even after hours of network downtime.<br>**+ Auto-Recovery:** Seamlessly syncs cached data the moment the connection returns.<br>**+ Flash Friendly:** Can attempt live sends first, saving flash write cycles. | **- Outbound Only:** Cannot receive instructions from the server.<br>**- Delayed Data:** Dashboard metrics stall until the device comes back online.<br>**- Flash Wear:** Heavy offline usage will eventually wear out the ESP's flash memory. |
+| **History** | Battery-powered devices, deep-sleep loggers, bulk data analytics. | **+ Extreme Efficiency:** Perfect for devices that wake up, read a sensor, log it, and sleep.<br>**+ Network Saving:** Reduces WiFi radio uptime by batching hundreds of readings.<br>**+ Crash-Proof:** Chunking logic prevents heap fragmentation during massive HTTP payloads. | **- Outbound Only:** Cannot receive instructions from the server.<br>**- Requires NTP:** Timestamps will be wrong if the device fails to sync on boot.<br>**- Not Real-Time:** Data is only viewable after a bulk upload is triggered. |
+
+---
+
+## 📦 Dependencies
+
 To ensure maximum stability, this library relies on the following core components:
+* **LittleFS:** Used internally for the Vault and History modules to handle file storage. *(Built into the ESP core)*.
+* **ArduinoJson:** Required for parsing incoming commands and formatting history payloads. **(v6.x or v7.x supported)**.
 
-LittleFS: Used internally for the Vault and History modules to handle file storage. (Built into the ESP core).
-ArduinoJson: Required for parsing incoming commands and formatting history payloads. (v6.x or v7.x supported).
-🛠️ Installation
-For Arduino IDE
-Open the Arduino IDE.
-Go to Sketch -> Include Library -> Manage Libraries...
-In the search bar, type ThingsSentral.
-Click Install.
-Repeat the search for ArduinoJson and install it if you haven't already.
-For PlatformIO
-Add the following to your platformio.ini file under your environment configuration:
+---
 
+## 🛠️ Installation
+
+### For Arduino IDE
+1. Open the Arduino IDE.
+2. Go to **Sketch** -> **Include Library** -> **Manage Libraries...**
+3. In the search bar, type **ThingsSentral**.
+4. Click **Install**.
+5. Repeat the search for **ArduinoJson** and install it if you haven't already.
+
+### For PlatformIO
+Add the following to your `platformio.ini` file under your environment configuration:
+```ini
 lib_deps =
     https://github.com/IdlanZafran/ThingsSentral.git
     bblanchon/ArduinoJson
-📚 Quick Start & Examples
-Note: The following examples utilize the RapidBootWiFi library to handle headless WiFi provisioning and dynamic User ID injection.
+```
 
-1. Command Module (Live Send & Receive)
+---
+
+## 📚 Quick Start & Examples
+
+*Note: The following examples utilize the [RapidBootWiFi](https://github.com/IdlanZafran/RapidBootWiFi) library to handle headless WiFi provisioning and dynamic User ID injection.*
+
+### 1. Command Module (Live Send & Receive)
 Perfect for Smart Plugs or live dashboards requiring instant telemetry and remote control.
 
+```cpp
 #include <Arduino.h>
 #include <RapidBootWiFi.h>
 #include <ThingsSentral.h>
@@ -89,9 +102,12 @@ void loop() {
         }
     }
 }
-2. Vault Module (Dynamic Flash-Saving Routing)
+```
+
+### 2. Vault Module (Dynamic Flash-Saving Routing)
 Perfect for mobile trackers or monitors in spotty WiFi zones. Tries to send live; falls back to offline memory if the network drops.
 
+```cpp
 #include <Arduino.h>
 #include <RapidBootWiFi.h>
 #include <ThingsSentral.h>
@@ -131,9 +147,12 @@ void loop() {
         if (TS.isOnline()) TS.Vault.sync(); 
     }
 }
-3. History Module (Time-Series Batch Upload)
+```
+
+### 3. History Module (Time-Series Batch Upload)
 Perfect for battery-powered or deep-sleep devices. Collects data locally with timestamps and uploads in bulk.
 
+```cpp
 #include <Arduino.h>
 #include <RapidBootWiFi.h>
 #include <ThingsSentral.h>
@@ -177,3 +196,4 @@ void loop() {
         }
     }
 }
+```
