@@ -63,14 +63,15 @@ ReadResult ThingsSentral::CommandModule::read(String sensorID) {
     String url = parent->_serverURL + "/ReadNode?Params=tokenid|" + parent->_userID + "@NodeId|" + sensorID;
     
     res.fullResponse = parent->_sendRequest(url);
-    
-    // Make sure response is long enough to actually contain data before parsing
-    if (res.fullResponse.length() > 3) {
+    res.fullResponse.trim(); // Added trim to remove hidden newlines
+
+    if (res.fullResponse.length() > 0) {
         int firstPipe = res.fullResponse.indexOf("|");
         if (firstPipe != -1) {
             int secondPipe = res.fullResponse.indexOf("|", firstPipe + 1);
             if (secondPipe != -1) {
                 res.value = res.fullResponse.substring(firstPipe + 1, secondPipe);
+                res.value.trim(); // Ensure the actual value has no spaces
             }
         }
     }
