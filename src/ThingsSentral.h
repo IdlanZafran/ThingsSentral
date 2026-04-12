@@ -7,7 +7,6 @@
  *      and History for memory-safe, auto-chunked bulk data payloads. 
  * Hardened against memory leaks and socket exhaustion. 
  * @author Creator Idlan Zafran Mohd Zaidie
- * @version 1.0.0
  * @license MIT
  */
 

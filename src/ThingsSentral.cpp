@@ -123,7 +123,7 @@ void ThingsSentral::VaultModule::sync() {
 void ThingsSentral::HistoryModule::stamp(String sensorID, float value) {
     File f = LittleFS.open("/ts_history.txt", "a"); 
     if (f) {
-        f.printf("{\"id\":\"%s\",\"val\":%.2f,\"t\":%ld}\n", sensorID.c_str(), value, time(nullptr));
+        f.printf("{\"id\":\"%s\",\"val\":%.2f,\"t\":%lld}\n", sensorID.c_str(), value, (long long)time(nullptr));
         f.close();
     }
 }
