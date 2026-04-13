@@ -2,7 +2,7 @@
 
 **By Idlan Zafran Mohd Zaidie**
 
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/IdlanZafran/ThingsSentral)
+[![Version](https://img.shields.io/badge/version-1.1.1-blue.svg)](https://github.com/IdlanZafran/ThingsSentral)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 An enterprise-grade, memory-safe Arduino library for connecting **ESP8266** and **ESP32** devices to the [ThingsSentral.io](http://thingssentral.io) platform. 
