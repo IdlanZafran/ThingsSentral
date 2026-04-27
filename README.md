@@ -13,7 +13,7 @@ _If you like this project, don’t forget to:_
 
 ## 📌 Overview
 
-An enterprise-grade, memory-safe Arduino library for connecting **ESP8266** and **ESP32** devices to the [ThingsSentral.io](http://thingssentral.my) platform. 
+An enterprise-grade, memory-safe Arduino library for connecting **ESP8266** and **ESP32** devices to the [ThingsSentral.my](http://thingssentral.my) platform. 
 
 ---
 
